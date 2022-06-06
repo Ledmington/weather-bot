@@ -1,4 +1,5 @@
 from geopy.geocoders import Nominatim
+import telegram
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -43,7 +44,10 @@ def main() -> None:
         entry_points=[
             CommandHandler("start", start_command),
             CommandHandler("help", help_command),
-            CommandHandler("weatherfor", get_weather),
+            CommandHandler("weather", get_weather),
+            CommandHandler("nexthour", get_next_hour),
+            CommandHandler("tomorrow", get_tomorrow),
+            CommandHandler("week", get_week),
         ],
         states={},
         fallbacks=[],
@@ -72,38 +76,91 @@ def help_command(update, context):
 
 
 def get_weather(update, context):
+    if len(update.message.text.split(" ")) == 1:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Error: you did not specify a location",
+        )
+        return
+
     location = " ".join(update.message.text.split(" ")[1:])
-    logger.info("Searching \"" + location + "\" for user id " + str(update.effective_chat.id))
+    logger.info(
+        'Searching "' + location + '" for user id ' + str(update.effective_chat.id)
+    )
 
     url = "https://forward-reverse-geocoding.p.rapidapi.com/v1/search"
 
-    response = requests.get(url,
-    headers={
-        "X-RapidAPI-Host": "forward-reverse-geocoding.p.rapidapi.com",
-        "X-RapidAPI-Key": geocoding_key
-    },
-    params={
-        "q":location,
-        "accept-language":"en",
-        "polygon_threshold":"0.0"
-    })
+    response = requests.get(
+        url,
+        headers={
+            "X-RapidAPI-Host": "forward-reverse-geocoding.p.rapidapi.com",
+            "X-RapidAPI-Key": geocoding_key,
+        },
+        params={"q": location, "accept-language": "en", "polygon_threshold": "0.0"},
+    )
 
-    coordinates = (response.json()[0]["lat"], response.json()[0]["lon"])
+    if len(response.json()) == 0:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            parse_mode=telegram.ParseMode.HTML,
+            text=f'I\'m sorry but "<b>{location}</b>" does not exist. Try again.',
+        )
+        return
 
-    weather = requests.get("https://api.openweathermap.org/data/2.5/onecall",
-        params = {
+    data = response.json()[0]
+    coordinates = (data["lat"], data["lon"])
+
+    weather = requests.get(
+        "https://api.openweathermap.org/data/2.5/onecall",
+        params={
             "lat": coordinates[0],
             "lon": coordinates[1],
-            "exclude": "hourly,daily",
-            "appid": weather_key
-        }
+            "exclude": "minutely,hourly,daily,alerts",
+            "appid": weather_key,
+        },
     )
 
-    print(weather.json())
+    # print(weather.json())
+    current_weather = weather.json()["current"]
+    temp = "{:.2f}".format(float(current_weather["temp"]) - 273.15)
+    felt_temp = "{:.2f}".format(float(current_weather["feels_like"]) - 273.15)
+    pressure = current_weather["pressure"]
+    humidity = current_weather["humidity"]
+
+    oneMetrePerSecondInKnots = float(1.94384)
+
+    wind_speed_ms = current_weather["wind_speed"]
+    wind_speed_knots = "{:.2f}".format(float(current_weather["wind_speed"]) * oneMetrePerSecondInKnots)
+    wind_degrees = int(current_weather["wind_deg"])
+
+    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW", "N"]
+
+    wind_direction = directions[int((wind_degrees % 360) / 22.5) + 1]
+
+    description = current_weather["weather"][0]["description"]
+
+    message = f"Current weather for <b>{location}</b>\nActual temperature: {temp}°C\nFelt temperature: {felt_temp}°C\nPressure: {pressure} hPa\nHumidity: {humidity}%\nWind: {wind_speed_ms} m/s ({wind_speed_knots} kn) {wind_direction}\nDescription: {description}\n"
 
     context.bot.send_message(
-        chat_id=update.effective_chat.id, text="ghei"
+        chat_id=update.effective_chat.id,
+        parse_mode=telegram.ParseMode.HTML,
+        text=message,
     )
+
+
+def get_next_hour(update, context):
+    logger.info("Received /nexthour from user id " + str(update.effective_chat.id))
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Not implemented")
+
+
+def get_tomorrow(update, context):
+    logger.info("Received /tomorrow from user id " + str(update.effective_chat.id))
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Not implemented")
+
+
+def get_week(update, context):
+    logger.info("Received /week from user id " + str(update.effective_chat.id))
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Not implemented")
 
 
 if __name__ == "__main__":
