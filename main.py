@@ -8,8 +8,11 @@ from telegram.ext import (
 )
 import os
 import logging
+import requests
+import json
 
 logger = logging.getLogger(__name__)
+geolocator = Nominatim(user_agent="weather-bot")
 
 
 def get_key(filename: str) -> str:
@@ -21,23 +24,16 @@ def get_key(filename: str) -> str:
     return mytoken
 
 
+weather_key = get_key("weather_key.txt")
+geocoding_key = get_key("geocoding_key.txt")
+
+
 def main() -> None:
     FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
     logging.basicConfig(format=FORMAT, datefmt="%d/%m/%Y %H:%M:%S")
     logger.setLevel(logging.DEBUG)
 
-    """
-    geolocator = Nominatim(user_agent="weather-bot")
-    location = geolocator.geocode("Riccione")
-    print(location.address)
-    print((location.latitude, location.longitude))
-    print(location.raw)
-    """
-
-    weather_key = get_key("weather_key.txt")
     telegram_token = get_key("telegram_token.txt")
-    print(weather_key)
-    print(telegram_token)
 
     logger.info("Creating updater")
     updater = Updater(token=telegram_token, use_context=True)
@@ -47,6 +43,7 @@ def main() -> None:
         entry_points=[
             CommandHandler("start", start_command),
             CommandHandler("help", help_command),
+            CommandHandler("weatherfor", get_weather),
         ],
         states={},
         fallbacks=[],
@@ -71,6 +68,41 @@ def help_command(update, context):
     logger.info("Received /help from user id " + str(update.effective_chat.id))
     context.bot.send_message(
         chat_id=update.effective_chat.id, text="Help not available at the moment"
+    )
+
+
+def get_weather(update, context):
+    location = " ".join(update.message.text.split(" ")[1:])
+    logger.info("Searching \"" + location + "\" for user id " + str(update.effective_chat.id))
+
+    url = "https://forward-reverse-geocoding.p.rapidapi.com/v1/search"
+
+    response = requests.get(url,
+    headers={
+        "X-RapidAPI-Host": "forward-reverse-geocoding.p.rapidapi.com",
+        "X-RapidAPI-Key": geocoding_key
+    },
+    params={
+        "q":location,
+        "accept-language":"en",
+        "polygon_threshold":"0.0"
+    })
+
+    coordinates = (response.json()[0]["lat"], response.json()[0]["lon"])
+
+    weather = requests.get("https://api.openweathermap.org/data/2.5/onecall",
+        params = {
+            "lat": coordinates[0],
+            "lon": coordinates[1],
+            "exclude": "hourly,daily",
+            "appid": weather_key
+        }
+    )
+
+    print(weather.json())
+
+    context.bot.send_message(
+        chat_id=update.effective_chat.id, text="ghei"
     )
 
 
