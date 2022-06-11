@@ -130,10 +130,30 @@ def get_weather(update, context):
     oneMetrePerSecondInKnots = float(1.94384)
 
     wind_speed_ms = current_weather["wind_speed"]
-    wind_speed_knots = "{:.2f}".format(float(current_weather["wind_speed"]) * oneMetrePerSecondInKnots)
+    wind_speed_knots = "{:.2f}".format(
+        float(current_weather["wind_speed"]) * oneMetrePerSecondInKnots
+    )
     wind_degrees = int(current_weather["wind_deg"])
 
-    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW", "N"]
+    directions = [
+        "N",
+        "NNE",
+        "NE",
+        "ENE",
+        "E",
+        "ESE",
+        "SE",
+        "SSE",
+        "S",
+        "SSW",
+        "SW",
+        "WSW",
+        "W",
+        "WNW",
+        "NW",
+        "NNW",
+        "N",
+    ]
 
     wind_direction = directions[int((wind_degrees % 360) / 22.5) + 1]
 
