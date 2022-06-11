@@ -71,7 +71,7 @@ def start_command(update, context):
 def help_command(update, context):
     logger.info("Received /help from user id " + str(update.effective_chat.id))
     context.bot.send_message(
-        chat_id=update.effective_chat.id, text="Help not available at the moment"
+        chat_id=update.effective_chat.id, text="/weather - get current weather for a location\n/nexthour - get previsions for the next hour\n/tomorrow - get previsions for tomorrow\n/week - get previsions for the next week\n/help - print this message and exits"
     )
 
 
